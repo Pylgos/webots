@@ -594,8 +594,5 @@ double WbTriangleMeshGeometry::min(int coordinate) const {
 ////////////////////////
 
 WbVector3 WbTriangleMeshGeometry::computeFrictionDirection(const WbVector3 &normal) const {
-  parsingWarn(tr("A %1 is used in a Bounding object using an asymmetric friction. %1 does not support "
-                 "asymmetric friction")
-                .arg(nodeModelName()));
   return WbVector3(0, 0, 0);
 }

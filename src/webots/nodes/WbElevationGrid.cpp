@@ -391,12 +391,7 @@ bool WbElevationGrid::areSizeFieldsVisibleAndNotRegenerator() const {
 
 QStringList WbElevationGrid::fieldsToSynchronizeWithW3d() const {
   QStringList fields;
-  fields << "height"
-         << "xDimension"
-         << "xSpacing"
-         << "yDimension"
-         << "ySpacing"
-         << "thickness";
+  fields << "height" << "xDimension" << "xSpacing" << "yDimension" << "ySpacing" << "thickness";
   return fields;
 }
 
@@ -645,7 +640,5 @@ void WbElevationGrid::recomputeBoundingSphere() const {
 ////////////////////////
 
 WbVector3 WbElevationGrid::computeFrictionDirection(const WbVector3 &normal) const {
-  parsingWarn(tr("A ElevationGrid is used in a Bounding object using an asymmetric friction. ElevationGrid does not support "
-                 "asymmetric friction"));
   return WbVector3(0, 0, 0);
 }

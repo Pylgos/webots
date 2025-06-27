@@ -294,12 +294,7 @@ void WbCapsule::updateLineScale() {
 
 QStringList WbCapsule::fieldsToSynchronizeWithW3d() const {
   QStringList fields;
-  fields << "radius"
-         << "height"
-         << "subdivision"
-         << "bottom"
-         << "side"
-         << "top";
+  fields << "radius" << "height" << "subdivision" << "bottom" << "side" << "top";
   return fields;
 }
 
@@ -523,7 +518,5 @@ void WbCapsule::recomputeBoundingSphere() const {
 ////////////////////////
 
 WbVector3 WbCapsule::computeFrictionDirection(const WbVector3 &normal) const {
-  parsingWarn(
-    tr("A Capsule is used in a Bounding object using an asymmetric friction. Capsule does not support asymmetric friction"));
   return WbVector3(0, 0, 0);
 }

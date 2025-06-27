@@ -277,7 +277,5 @@ QStringList WbIndexedLineSet::fieldsToSynchronizeWithW3d() const {
 ////////////////////////
 
 WbVector3 WbIndexedLineSet::computeFrictionDirection(const WbVector3 &normal) const {
-  parsingWarn(tr("A IndexedLineSet is used in a Bounding object using an asymmetric friction. IndexedLineSet does not support "
-                 "asymmetric friction"));
   return WbVector3(0, 0, 0);
 }

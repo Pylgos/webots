@@ -268,11 +268,7 @@ void WbSimulationCluster::fillSurfaceParameters(const WbContactProperties *cp, c
     }
 
     // check if both geometries support asymmetric friction
-    if (globalFdirS1.isNull() || globalFdirS2.isNull()) {
-      contact->surface.mode = (bounce != 0.0 ? dContactBounce : 0) | dContactApprox1 | dContactSoftCFM | dContactSoftERP;
-      frictionSize = 1;
-      fdsSize = 1;
-    } else {
+    if ((!globalFdirS1.isNull() && !globalFdirS2.isNull()) || (frictionSize == 3 && !globalFdirS1.isNull())) {
       // Apply friction direction rotation if set
       if (!frictionRotation.isNull()) {
         globalFdirS1 =
@@ -287,6 +283,27 @@ void WbSimulationCluster::fillSurfaceParameters(const WbContactProperties *cp, c
       contact->fdir1[0] = globalFdirS1[0];
       contact->fdir1[1] = globalFdirS1[1];
       contact->fdir1[2] = globalFdirS1[2];
+    } else {
+      const char *msg = "A %1 is used in a Bounding object using an asymmetric friction. %1 does not support "
+                        "asymmetric friction";
+      if (inversed) {
+        if (globalFdirS1.isNull()) {
+          wg2->parsingWarn(wg2->tr(msg).arg(wg2->nodeModelName()));
+        }
+        if (globalFdirS2.isNull() && frictionSize != 3) {
+          wg1->parsingWarn(wg1->tr(msg).arg(wg1->nodeModelName()));
+        }
+      } else {
+        if (globalFdirS1.isNull()) {
+          wg1->parsingWarn(wg1->tr(msg).arg(wg1->nodeModelName()));
+        }
+        if (globalFdirS2.isNull() && frictionSize != 3) {
+          wg2->parsingWarn(wg2->tr(msg).arg(wg2->nodeModelName()));
+        }
+      }
+      contact->surface.mode = (bounce != 0.0 ? dContactBounce : 0) | dContactApprox1 | dContactSoftCFM | dContactSoftERP;
+      frictionSize = 1;
+      fdsSize = 1;
     }
   } else  // fully symmetric contact (slip and friction)
     contact->surface.mode = (bounce != 0.0 ? dContactBounce : 0) | dContactApprox1 | dContactSoftCFM | dContactSoftERP;
@@ -295,20 +312,23 @@ void WbSimulationCluster::fillSurfaceParameters(const WbContactProperties *cp, c
   if (frictionSize <= 1)  // symmetric friction
     contact->surface.mu = mu[0];
   else {  // asymmetric friction
-    // compute mu1 and mu2 (length of globalFdirS1 and globalFdirS2 is assumed to be 1)
-    double vectorAngle = globalFdirS1.angle(globalFdirS2);
-    double ratio1 = fabs(cos(vectorAngle));
-    double ratio2 = fabs(sin(vectorAngle));
+    // compute mu1 and mu2
     double mu1, mu2;
     if (frictionSize == 3) {  // second solid has symmetric friction
       mu1 = mu[0] + mu[2];
       mu2 = mu[1] + mu[2];
-    } else if (frictionSize == 2) {  // both solids have asymetric friction (with same coefficients)
-      mu1 = mu[0] + mu[0] * ratio1 + mu[1] * ratio2;
-      mu2 = mu[1] + mu[0] * ratio2 + mu[1] * ratio1;
-    } else {  // both solids have asymetric friction (with independent coefficient)
-      mu1 = mu[0] + mu[2] * ratio1 + mu[3] * ratio2;
-      mu2 = mu[1] + mu[2] * ratio2 + mu[3] * ratio1;
+    } else {
+      // length of globalFdirS1 and globalFdirS2 is assumed to be 1
+      double vectorAngle = globalFdirS1.angle(globalFdirS2);
+      double ratio1 = fabs(cos(vectorAngle));
+      double ratio2 = fabs(sin(vectorAngle));
+      if (frictionSize == 2) {  // both solids have asymetric friction (with same coefficients)
+        mu1 = mu[0] + mu[0] * ratio1 + mu[1] * ratio2;
+        mu2 = mu[1] + mu[0] * ratio2 + mu[1] * ratio1;
+      } else {  // both solids have asymetric friction (with independent coefficient)
+        mu1 = mu[0] + mu[2] * ratio1 + mu[3] * ratio2;
+        mu2 = mu[1] + mu[2] * ratio2 + mu[3] * ratio1;
+      }
     }
 
     // apply friction contact joint parameters
@@ -341,31 +361,35 @@ void WbSimulationCluster::fillSurfaceParameters(const WbContactProperties *cp, c
     contact->surface.slip2 = fds[0];
     contact->surface.mode = contact->surface.mode | (fds[0] != 0.0 ? dContactSlip1 | dContactSlip2 : 0);
   } else {  // asymetric slip
-    // compute slip1 and slip2 (length of globalFdirS1 and globalFdirS2 is assumed to be 1)
-    double vectorAngle = globalFdirS1.angle(globalFdirS2);
-    double ratio1 = fabs(cos(vectorAngle));
-    double ratio2 = fabs(sin(vectorAngle));
+    // compute slip1 and slip2
     double slip1 = 0, slip2 = 0;
     if (fdsSize == 3) {  // second solid has symmetric slip
       slip1 = fds[0] + fds[2];
       slip2 = fds[1] + fds[2];
       contact->surface.mode = contact->surface.mode | (slip1 != 0.0 ? dContactSlip1 : 0) | (slip2 != 0.0 ? dContactSlip2 : 0);
-    } else if (fdsSize == 2) {  // both solids have asymetric slip (with same coefficients)
-      if (fds[1] == 0.0) {      // only Slip1 is activated
-        slip1 = fds[0];
-        contact->surface.mode = contact->surface.mode | (slip1 != 0.0 ? dContactSlip1 : 0);
-      } else if (fds[0] == 0.0) {  // only Slip2 is activated
-        slip2 = fds[1];
-        contact->surface.mode = contact->surface.mode | (slip2 != 0.0 ? dContactSlip2 : 0);
-      } else {
-        slip1 = fds[0] + fds[0] * ratio1 + fds[1] * ratio2;
-        slip2 = fds[1] + fds[0] * ratio2 + fds[1] * ratio1;
+    } else {
+      // length of globalFdirS1 and globalFdirS2 is assumed to be 1
+      double vectorAngle = globalFdirS1.angle(globalFdirS2);
+      double ratio1 = fabs(cos(vectorAngle));
+      double ratio2 = fabs(sin(vectorAngle));
+      if (fdsSize == 2) {     // both solids have asymetric slip (with same coefficients)
+        if (fds[1] == 0.0) {  // only Slip1 is activated
+          slip1 = fds[0];
+          contact->surface.mode = contact->surface.mode | (slip1 != 0.0 ? dContactSlip1 : 0);
+        } else if (fds[0] == 0.0) {  // only Slip2 is activated
+          slip2 = fds[1];
+          contact->surface.mode = contact->surface.mode | (slip2 != 0.0 ? dContactSlip2 : 0);
+        } else {
+          slip1 = fds[0] + fds[0] * ratio1 + fds[1] * ratio2;
+          slip2 = fds[1] + fds[0] * ratio2 + fds[1] * ratio1;
+          contact->surface.mode =
+            contact->surface.mode | (slip1 != 0.0 ? dContactSlip1 : 0) | (slip2 != 0.0 ? dContactSlip2 : 0);
+        }
+      } else {  // both solids have asymetric slip (with independent coefficient)
+        slip1 = fds[0] + fds[2] * ratio1 + fds[3] * ratio2;
+        slip2 = fds[1] + fds[2] * ratio2 + fds[3] * ratio1;
         contact->surface.mode = contact->surface.mode | (slip1 != 0.0 ? dContactSlip1 : 0) | (slip2 != 0.0 ? dContactSlip2 : 0);
       }
-    } else {  // both solids have asymetric slip (with independent coefficient)
-      slip1 = fds[0] + fds[2] * ratio1 + fds[3] * ratio2;
-      slip2 = fds[1] + fds[2] * ratio2 + fds[3] * ratio1;
-      contact->surface.mode = contact->surface.mode | (slip1 != 0.0 ? dContactSlip1 : 0) | (slip2 != 0.0 ? dContactSlip2 : 0);
     }
 
     // apply slip contact joint parameters
